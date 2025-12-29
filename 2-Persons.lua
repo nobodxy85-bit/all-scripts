@@ -1,35 +1,54 @@
--- VISUAL PLAYER CLONE (APPEARANCE ONLY)
--- Funciona aunque el jugador NO esté en el server
--- Creador = Nobodxy85-bit
+-- LOCAL PLAYER VISUAL CLONE (MIRROR)
+-- Copia tus movimientos y aparece a tu izquierda
+-- Creator = Nobodxy85-bit :D
 
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
--- ===== CONFIG =====
-local TARGET_USER_ID = 3180109012 -- << CAMBIA ESTE ID
+local player = Players.LocalPlayer
+local OFFSET = CFrame.new(-3, 0, 0) -- izquierda (X negativo)
 
--- ===== CREATE VISUAL CLONE =====
-local function createVisualClone(userId)
-    local model = Players:CreateHumanoidModelFromUserId(userId)
-    model.Name = "VisualClone_" .. userId
-    model.Parent = workspace
+-- Esperar personaje
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
 
-    -- Asegurar PrimaryPart
-    local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
-    if hrp then
-        model.PrimaryPart = hrp
-        model:SetPrimaryPartCFrame(CFrame.new(0, 5, 0)) -- posición inicial
-    end
+-- Crear clon visual usando tu avatar
+local clone = Players:CreateHumanoidModelFromUserId(player.UserId)
+clone.Name = "VisualClone"
+clone.Parent = workspace
 
-    -- Ajustes visuales
-    for _, v in ipairs(model:GetDescendants()) do
-        if v:IsA("BasePart") then
-            v.Anchored = true
-            v.CanCollide = false
-        end
-    end
+-- PrimaryPart
+local cloneRoot = clone:WaitForChild("HumanoidRootPart")
+clone.PrimaryPart = cloneRoot
 
-    return model
+-- Ajustes visuales
+for _, v in ipairs(clone:GetDescendants()) do
+	if v:IsA("BasePart") then
+		v.Anchored = true
+		v.CanCollide = false
+        v.Transparency = 0.5
+	end
 end
 
--- ===== RUN =====
-createVisualClone(TARGET_USER_ID)
+-- Quitar nombre
+clone:FindFirstChildOfClass("Humanoid").DisplayDistanceType =
+	Enum.HumanoidDisplayDistanceType.None
+
+-- Copiar animaciones
+local cloneHumanoid = clone:FindFirstChildOfClass("Humanoid")
+local animator = cloneHumanoid:WaitForChild("Animator")
+
+humanoid.AnimationPlayed:Connect(function(track)
+	local anim = Instance.new("Animation")
+	anim.AnimationId = track.Animation.AnimationId
+	local newTrack = animator:LoadAnimation(anim)
+	newTrack:Play()
+end)
+
+-- Sincronizar posición y rotación
+RunService.RenderStepped:Connect(function()
+	if hrp and clone.PrimaryPart then
+		clone:SetPrimaryPartCFrame(hrp.CFrame * OFFSET)
+	end
+end)
