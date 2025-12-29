@@ -1,7 +1,7 @@
--- VISUAL CLONE CON ANIMACIONES + TOGGLE Z + SIN COLISIONES
--- Sigue al jugador suavemente y puede congelarse en el lugar
+-- VISUAL CLONE CON ANIMACIONES + TOGGLE Z (NO COLISIONA)
 -- Creator = Nobodxy85-bit
 
+-- ===== SERVICIOS =====
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -11,15 +11,12 @@ local player = Players.LocalPlayer
 local OFFSET = CFrame.new(-5, 0, 0)
 local SMOOTHNESS = 0.15
 
--- ===== COLLISION GROUPS =====
-local CLONE_GROUP = "VisualClone"
-local PLAYER_GROUP = "LocalPlayer"
+-- ===== COLLISION GROUP =====
+pcall(function()
+	PhysicsService:CreateCollisionGroup("VisualClone")
+end)
 
-pcall(function() PhysicsService:CreateCollisionGroup(CLONE_GROUP) end)
-pcall(function() PhysicsService:CreateCollisionGroup(PLAYER_GROUP) end)
-
-PhysicsService:CollisionGroupSetCollidable(CLONE_GROUP, PLAYER_GROUP, false)
-PhysicsService:CollisionGroupSetCollidable(CLONE_GROUP, CLONE_GROUP, false)
+PhysicsService:CollisionGroupSetCollidable("VisualClone", "Default", false)
 
 -- ===== ESTADO =====
 local following = true
@@ -27,17 +24,10 @@ local frozenPosition = nil
 local lastPlayerCFrame = nil
 local currentCFrame = nil
 
--- ===== PERSONAJE =====
+-- ===== ESPERAR CHARACTER =====
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local hrp = character:WaitForChild("HumanoidRootPart")
-
--- Asignar collision group al jugador
-for _, v in ipairs(character:GetDescendants()) do
-	if v:IsA("BasePart") then
-		PhysicsService:SetPartCollisionGroup(v, PLAYER_GROUP)
-	end
-end
 
 -- ===== CREAR CLON =====
 local clone = Players:CreateHumanoidModelFromUserId(player.UserId)
@@ -50,12 +40,16 @@ clone.PrimaryPart = cloneHRP
 
 cloneHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 
--- Ajustes visuales y colisiones
+-- ===== CONFIG VISUAL + COLISION =====
 for _, v in ipairs(clone:GetDescendants()) do
 	if v:IsA("BasePart") then
 		v.CanCollide = false
+		v.CanTouch = false
+		v.CanQuery = false
 		v.Transparency = 0.2
-		PhysicsService:SetPartCollisionGroup(v, CLONE_GROUP)
+		
+		-- 🔒 NO COLISIONA CON NADIE
+		PhysicsService:SetPartCollisionGroup(v, "VisualClone")
 
 		if v == cloneHRP then
 			v.Anchored = true
@@ -83,26 +77,26 @@ local function syncAnimator()
 		local dstTracks = dstAnimator:GetPlayingAnimationTracks()
 
 		-- detener animaciones sobrantes
-		for _, d in ipairs(dstTracks) do
-			local keep = false
-			for _, s in ipairs(srcTracks) do
-				if d.Animation.AnimationId == s.Animation.AnimationId then
-					keep = true
+		for _, dst in ipairs(dstTracks) do
+			local found = false
+			for _, src in ipairs(srcTracks) do
+				if dst.Animation.AnimationId == src.Animation.AnimationId then
+					found = true
 					break
 				end
 			end
-			if not keep then
-				d:Stop()
+			if not found then
+				dst:Stop()
 			end
 		end
 
-		-- sincronizar activas
-		for _, s in ipairs(srcTracks) do
+		-- copiar animaciones
+		for _, src in ipairs(srcTracks) do
 			local found = false
-			for _, d in ipairs(dstTracks) do
-				if d.Animation.AnimationId == s.Animation.AnimationId then
-					d.TimePosition = s.TimePosition
-					d:AdjustSpeed(s.Speed)
+			for _, dst in ipairs(dstTracks) do
+				if dst.Animation.AnimationId == src.Animation.AnimationId then
+					dst.TimePosition = src.TimePosition
+					dst:AdjustSpeed(src.Speed)
 					found = true
 					break
 				end
@@ -110,11 +104,11 @@ local function syncAnimator()
 
 			if not found then
 				local anim = Instance.new("Animation")
-				anim.AnimationId = s.Animation.AnimationId
-				local nt = dstAnimator:LoadAnimation(anim)
-				nt.Priority = s.Priority
-				nt:Play(0, 1, s.Speed)
-				nt.TimePosition = s.TimePosition
+				anim.AnimationId = src.Animation.AnimationId
+				local track = dstAnimator:LoadAnimation(anim)
+				track.Priority = src.Priority
+				track:Play(0, 1, src.Speed)
+				track.TimePosition = src.TimePosition
 			end
 		end
 	end)
@@ -138,7 +132,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
 	end
 end)
 
--- ===== MOVIMIENTO SUAVIZADO =====
+-- ===== MOVIMIENTO =====
 RunService.RenderStepped:Connect(function()
 	if not clone.PrimaryPart then return end
 
