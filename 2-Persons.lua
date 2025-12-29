@@ -6,7 +6,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local OFFSET = CFrame.new(-3, 0, 0) -- izquierda (X negativo)
+local OFFSET = CFrame.new(-5, 0, 0) -- izquierda (X negativo)
 
 -- Esperar personaje
 local character = player.Character or player.CharacterAdded:Wait()
@@ -27,7 +27,7 @@ for _, v in ipairs(clone:GetDescendants()) do
 	if v:IsA("BasePart") then
 		v.Anchored = true
 		v.CanCollide = false
-        v.Transparency = 0.5
+        v.Transparency = 0.2
 	end
 end
 
