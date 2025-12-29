@@ -1,91 +1,85 @@
--- VISUAL PLAYER CLONE WITH DELAY
--- Creator: Nobodxy85-bit (adapted)
--- Delay: 0.5 seconds
+-- VISUAL PLAYER CLONE WITH REAL DELAY (WORKING)
+-- Creator: Nobodxy85-bit
+-- FIXED VERSION
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local LOCAL_PLAYER = Players.LocalPlayer
-
 -- ===== CONFIG =====
-local TARGET_USER_ID = 3180109012
-local DELAY_SECONDS = 0.3
+local TARGET_USER_ID = 3180109012 -- CAMBIA ESTO
+local DELAY = 0.5
 
 -- ===== VARIABLES =====
 local targetPlayer
-local cloneCharacter
-local positionBuffer = {}
+local clone
+local buffer = {}
 
--- ===== CREATE VISUAL CLONE =====
-local function createClone(description)
-    cloneCharacter = Instance.new("Model")
-    cloneCharacter.Name = "VisualClone"
+-- ===== CREATE CLONE =====
+local function createCloneFromUserId(userId)
+    local model = Players:CreateHumanoidModelFromUserId(userId)
+    model.Name = "VisualClone"
 
-    local humanoid = Instance.new("Humanoid")
-    humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-    humanoid.Parent = cloneCharacter
+    model.Parent = workspace
 
-    humanoid:ApplyDescription(description)
+    local hrp = model:WaitForChild("HumanoidRootPart")
+    model.PrimaryPart = hrp
 
-    cloneCharacter.Parent = workspace
-    cloneCharacter:SetPrimaryPartCFrame(CFrame.new(0, -1000, 0))
-
-    -- no collision
-    for _, v in ipairs(cloneCharacter:GetDescendants()) do
+    for _, v in ipairs(model:GetDescendants()) do
         if v:IsA("BasePart") then
             v.CanCollide = false
-            v.Anchored = false
+            v.Anchored = true
         end
     end
+
+    return model
 end
 
--- ===== BUFFER HANDLING =====
-local function recordPosition(cf)
-    table.insert(positionBuffer, {
-        time = tick(),
-        cframe = cf
+-- ===== BUFFER =====
+local function push(cf)
+    table.insert(buffer, {
+        t = time(),
+        cf = cf
     })
 end
 
-local function getDelayedCFrame()
-    local now = tick()
-    for i, data in ipairs(positionBuffer) do
-        if now - data.time >= DELAY_SECONDS then
-            table.remove(positionBuffer, i)
-            return data.cframe
+local function pop()
+    local now = time()
+    for i, data in ipairs(buffer) do
+        if now - data.t >= DELAY then
+            table.remove(buffer, i)
+            return data.cf
         end
     end
 end
 
--- ===== FIND PLAYER BY USERID =====
-local function findTarget()
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr.UserId == TARGET_USER_ID then
-            return plr
+-- ===== FIND PLAYER =====
+local function getTarget()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.UserId == TARGET_USER_ID then
+            return p
         end
     end
 end
 
 -- ===== MAIN =====
 task.spawn(function()
-    repeat task.wait(1) until findTarget()
-    targetPlayer = findTarget()
+    repeat task.wait(1) until getTarget()
+    targetPlayer = getTarget()
 
     repeat task.wait() until targetPlayer.Character
     local char = targetPlayer.Character
-    local humanoid = char:WaitForChild("Humanoid")
+    local hrp = char:WaitForChild("HumanoidRootPart")
 
-    local description = humanoid:GetAppliedDescription()
-    createClone(description)
+    clone = createCloneFromUserId(TARGET_USER_ID)
 
-    RunService.Heartbeat:Connect(function()
-        if not char.PrimaryPart or not cloneCharacter.PrimaryPart then return end
+    RunService.RenderStepped:Connect(function()
+        if not hrp or not clone or not clone.PrimaryPart then return end
 
-        recordPosition(char.PrimaryPart.CFrame)
+        push(hrp.CFrame)
 
-        local delayedCF = getDelayedCFrame()
-        if delayedCF then
-            cloneCharacter:SetPrimaryPartCFrame(delayedCF)
+        local delayed = pop()
+        if delayed then
+            clone:SetPrimaryPartCFrame(delayed)
         end
     end)
 end)
