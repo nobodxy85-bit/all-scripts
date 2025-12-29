@@ -1,18 +1,16 @@
--- VISUAL CLONE ESTABLE + ANIMACIONES + TOGGLE Z
--- Sin teleports raros, con suavizado real
-
+-- VISUAL CLONE CON ANIMACIONES + TOGGLE Z (SE QUEDA EN LUGAR PERO TE COPIA)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local OFFSET = CFrame.new(-5, 0, 0)
-local SMOOTHNESS = 0.15 -- menor = más suave
+local SMOOTHNESS = 0.15
 
 -- Estado
 local following = true
-local frozenCFrame = nil
-local currentCFrame = nil
+local frozenPosition = nil
+local lastPlayerCFrame = nil
 
 -- Esperar character
 local character = player.Character or player.CharacterAdded:Wait()
@@ -30,67 +28,117 @@ clone.PrimaryPart = cloneHRP
 
 cloneHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 
--- Visual
+-- Visual - SOLO anclar HumanoidRootPart
 for _, v in ipairs(clone:GetDescendants()) do
 	if v:IsA("BasePart") then
-		v.Anchored = true
 		v.CanCollide = false
 		v.Transparency = 0.2
+		if v == cloneHRP then
+			v.Anchored = true
+		else
+			v.Anchored = false
+		end
 	end
 end
 
--- ===== COPIA DE ANIMATOR (CLAVE) =====
-local function syncAnimator()
-	local srcAnimator = humanoid:WaitForChild("Animator")
-	local dstAnimator = cloneHumanoid:WaitForChild("Animator")
+-- Copiar accesorios del jugador
+for _, obj in ipairs(character:GetChildren()) do
+	if obj:IsA("Accessory") then
+		local cloneAccessory = obj:Clone()
+		cloneAccessory.Parent = clone
+	end
+end
 
+-- ===== SINCRONIZAR ANIMACIONES =====
+local function syncAnimator()
+	local srcAnimator = humanoid:FindFirstChildOfClass("Animator")
+	local dstAnimator = cloneHumanoid:FindFirstChildOfClass("Animator")
+	
+	if not srcAnimator or not dstAnimator then
+		return
+	end
+	
 	RunService.RenderStepped:Connect(function()
-		for _, track in ipairs(srcAnimator:GetPlayingAnimationTracks()) do
+		local srcTracks = srcAnimator:GetPlayingAnimationTracks()
+		local dstTracks = dstAnimator:GetPlayingAnimationTracks()
+		
+		-- Detener animaciones que ya no están en el original
+		for _, dstTrack in ipairs(dstTracks) do
 			local found = false
-			for _, cTrack in ipairs(dstAnimator:GetPlayingAnimationTracks()) do
-				if cTrack.Animation.AnimationId == track.Animation.AnimationId then
-					cTrack.TimePosition = track.TimePosition
-					cTrack:AdjustSpeed(track.Speed)
+			for _, srcTrack in ipairs(srcTracks) do
+				if dstTrack.Animation.AnimationId == srcTrack.Animation.AnimationId then
 					found = true
 					break
 				end
 			end
 			if not found then
+				dstTrack:Stop()
+			end
+		end
+		
+		-- Sincronizar animaciones activas
+		for _, srcTrack in ipairs(srcTracks) do
+			local found = false
+			for _, dstTrack in ipairs(dstTracks) do
+				if dstTrack.Animation.AnimationId == srcTrack.Animation.AnimationId then
+					dstTrack.TimePosition = srcTrack.TimePosition
+					dstTrack:AdjustSpeed(srcTrack.Speed)
+					found = true
+					break
+				end
+			end
+			
+			if not found then
 				local anim = Instance.new("Animation")
-				anim.AnimationId = track.Animation.AnimationId
+				anim.AnimationId = srcTrack.Animation.AnimationId
 				local newTrack = dstAnimator:LoadAnimation(anim)
-				newTrack.Priority = track.Priority
-				newTrack:Play(0)
+				newTrack.Priority = srcTrack.Priority
+				newTrack:Play(0, 1, srcTrack.Speed)
+				newTrack.TimePosition = srcTrack.TimePosition
 			end
 		end
 	end)
 end
 
+task.wait(0.1)
 syncAnimator()
 
--- ===== TECLA Z =====
+-- ===== TOGGLE CON Z =====
 UserInputService.InputBegan:Connect(function(input, gp)
 	if gp then return end
 	if input.KeyCode == Enum.KeyCode.Z then
 		following = not following
 		if not following then
-			frozenCFrame = currentCFrame
+			frozenPosition = cloneHRP.Position
+			lastPlayerCFrame = hrp.CFrame
+		else
+			frozenPosition = nil
+			lastPlayerCFrame = nil
 		end
 	end
 end)
 
--- ===== LOOP SUAVIZADO =====
+-- ===== MOVIMIENTO =====
+local currentCFrame = nil
+
 RunService.RenderStepped:Connect(function()
 	if not clone.PrimaryPart then return end
-
+	
+	local targetCFrame
+	
 	if following then
-		local target = hrp.CFrame * OFFSET
-		currentCFrame = currentCFrame and currentCFrame:Lerp(target, SMOOTHNESS) or target
+		targetCFrame = hrp.CFrame * OFFSET
 	else
-		currentCFrame = frozenCFrame
+		if frozenPosition and lastPlayerCFrame then
+			local playerMovement = lastPlayerCFrame:Inverse() * hrp.CFrame
+			local frozenCFrame = CFrame.new(frozenPosition) * (playerMovement - playerMovement.Position)
+			targetCFrame = frozenCFrame
+			lastPlayerCFrame = hrp.CFrame
+		else
+			targetCFrame = cloneHRP.CFrame
+		end
 	end
-
-	if currentCFrame then
-		clone:SetPrimaryPartCFrame(currentCFrame)
-	end
+	
+	currentCFrame = currentCFrame and currentCFrame:Lerp(targetCFrame, SMOOTHNESS) or targetCFrame
+	cloneHRP.CFrame = currentCFrame
 end)
