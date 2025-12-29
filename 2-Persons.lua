@@ -1,19 +1,20 @@
--- VISUAL CLONE QUE COPIA ANIMACIONES + TOGGLE Z
--- Sigue al jugador / se congela en su posición
--- Creator = Nobodxy85-bit
+-- VISUAL CLONE ESTABLE + ANIMACIONES + TOGGLE Z
+-- Sin teleports raros, con suavizado real
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
-local OFFSET = CFrame.new(-5, 0, 0) -- izquierda
+local OFFSET = CFrame.new(-5, 0, 0)
+local SMOOTHNESS = 0.15 -- menor = más suave
 
 -- Estado
 local following = true
-local frozenOffset = nil
+local frozenCFrame = nil
+local currentCFrame = nil
 
--- Esperar personaje
+-- Esperar character
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local hrp = character:WaitForChild("HumanoidRootPart")
@@ -29,56 +30,67 @@ clone.PrimaryPart = cloneHRP
 
 cloneHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 
--- Ajustes visuales
+-- Visual
 for _, v in ipairs(clone:GetDescendants()) do
 	if v:IsA("BasePart") then
 		v.Anchored = true
 		v.CanCollide = false
-		v.Transparency = 0.1 -- fantasma
+		v.Transparency = 0.2
 	end
 end
 
--- ===== COPIAR ANIMACIONES =====
-local cloneAnimator = cloneHumanoid:WaitForChild("Animator")
+-- ===== COPIA DE ANIMATOR (CLAVE) =====
+local function syncAnimator()
+	local srcAnimator = humanoid:WaitForChild("Animator")
+	local dstAnimator = cloneHumanoid:WaitForChild("Animator")
 
-humanoid.AnimationPlayed:Connect(function(track)
-	local anim = Instance.new("Animation")
-	anim.AnimationId = track.Animation.AnimationId
-
-	local newTrack = cloneAnimator:LoadAnimation(anim)
-	newTrack.Priority = track.Priority
-	newTrack:Play()
-
-	-- sincronizar velocidad
 	RunService.RenderStepped:Connect(function()
-		if newTrack.IsPlaying then
-			newTrack:AdjustSpeed(track.Speed)
+		for _, track in ipairs(srcAnimator:GetPlayingAnimationTracks()) do
+			local found = false
+			for _, cTrack in ipairs(dstAnimator:GetPlayingAnimationTracks()) do
+				if cTrack.Animation.AnimationId == track.Animation.AnimationId then
+					cTrack.TimePosition = track.TimePosition
+					cTrack:AdjustSpeed(track.Speed)
+					found = true
+					break
+				end
+			end
+			if not found then
+				local anim = Instance.new("Animation")
+				anim.AnimationId = track.Animation.AnimationId
+				local newTrack = dstAnimator:LoadAnimation(anim)
+				newTrack.Priority = track.Priority
+				newTrack:Play(0)
+			end
 		end
 	end)
-end)
+end
 
--- ===== TECLA Z (FREEZE / FOLLOW) =====
+syncAnimator()
+
+-- ===== TECLA Z =====
 UserInputService.InputBegan:Connect(function(input, gp)
 	if gp then return end
 	if input.KeyCode == Enum.KeyCode.Z then
 		following = not following
-
 		if not following then
-			-- guardar offset actual
-			frozenOffset = hrp.CFrame:ToObjectSpace(cloneHRP.CFrame)
-		else
-			-- reanudar desde donde quedó
-			frozenOffset = frozenOffset or OFFSET
+			frozenCFrame = currentCFrame
 		end
 	end
 end)
 
--- ===== LOOP PRINCIPAL =====
+-- ===== LOOP SUAVIZADO =====
 RunService.RenderStepped:Connect(function()
-	if not clone or not clone.PrimaryPart then return end
+	if not clone.PrimaryPart then return end
 
 	if following then
-		local offset = frozenOffset or OFFSET
-		clone:SetPrimaryPartCFrame(hrp.CFrame * offset)
+		local target = hrp.CFrame * OFFSET
+		currentCFrame = currentCFrame and currentCFrame:Lerp(target, SMOOTHNESS) or target
+	else
+		currentCFrame = frozenCFrame
+	end
+
+	if currentCFrame then
+		clone:SetPrimaryPartCFrame(currentCFrame)
 	end
 end)
