@@ -1,4 +1,4 @@
--- VISUAL CLONE CON ANIMACIONES + TOGGLE Z + GUI TOGGLE X :D
+-- VISUAL CLONE CON ANIMACIONES + TOGGLE Z + GUI TOGGLE X D:
 -- Creator = Nobodxy85-bit
 -- Enhanced by Claude
 
