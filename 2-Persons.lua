@@ -1,12 +1,10 @@
--- VISUAL CLONE CON ANIMACIONES + TOGGLE Z (SE QUEDA EN LUGAR PERO TE COPIA :D)
--- + TELETRANSPORTE CON X (cuando está congelado)
+-- VISUAL CLONE CON ANIMACIONES + TOGGLE Z + GUI TOGGLE X
 -- Creator = Nobodxy85-bit
--- Modified: Added teleport feature
+-- Enhanced by Claude
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local PhysicsService = game:GetService("PhysicsService")
 
 local player = Players.LocalPlayer
 local OFFSET = CFrame.new(-5, 0, 0)
@@ -16,96 +14,193 @@ local SMOOTHNESS = 0.15
 local following = true
 local frozenPosition = nil
 local lastPlayerCFrame = nil
+local clone = nil
+local cloneHumanoid = nil
+local cloneHRP = nil
 
 -- Esperar character
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local hrp = character:WaitForChild("HumanoidRootPart")
 
--- Crear grupo de colisión
-pcall(function()
-	PhysicsService:RegisterCollisionGroup("CloneGroup")
-	PhysicsService:CollisionGroupSetCollidable("CloneGroup", "CloneGroup", false)
-	PhysicsService:CollisionGroupSetCollidable("CloneGroup", "Default", false)
-end)
+-- ===== CREAR GUI =====
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CloneConfigGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
 
--- Crear clon
-local clone = Players:CreateHumanoidModelFromUserId(player.UserId)
-clone.Name = "VisualClone"
-clone.Parent = workspace
-local cloneHumanoid = clone:WaitForChild("Humanoid")
-local cloneHRP = clone:WaitForChild("HumanoidRootPart")
-clone.PrimaryPart = cloneHRP
-cloneHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 300, 0, 150)
+mainFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
+mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+mainFrame.BorderSizePixel = 2
+mainFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+mainFrame.Parent = screenGui
 
--- Visual - SIN ANCLAR, usar AlignPosition en su lugar
-for _, v in ipairs(clone:GetDescendants()) do
-	if v:IsA("BasePart") then
-		v.CanCollide = false
-		v.Transparency = 0.2
-		v.Massless = true
-		v.Anchored = false -- TODAS las partes desancladas
-		
-		-- Aplicar grupo de colisión
-		pcall(function()
-			PhysicsService:SetPartCollisionGroup(v, "CloneGroup")
-		end)
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 8)
+uiCorner.Parent = mainFrame
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "Title"
+titleLabel.Size = UDim2.new(1, 0, 0, 40)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+titleLabel.BorderSizePixel = 0
+titleLabel.Text = "VISUAL CLONE CONFIG"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 16
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 8)
+titleCorner.Parent = titleLabel
+
+local inputLabel = Instance.new("TextLabel")
+inputLabel.Name = "InputLabel"
+inputLabel.Size = UDim2.new(0, 280, 0, 20)
+inputLabel.Position = UDim2.new(0, 10, 0, 50)
+inputLabel.BackgroundTransparency = 1
+inputLabel.Text = "User ID del jugador:"
+inputLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+inputLabel.TextSize = 14
+inputLabel.Font = Enum.Font.Gotham
+inputLabel.TextXAlignment = Enum.TextXAlignment.Left
+inputLabel.Parent = mainFrame
+
+local textBox = Instance.new("TextBox")
+textBox.Name = "UserIdInput"
+textBox.Size = UDim2.new(0, 280, 0, 35)
+textBox.Position = UDim2.new(0, 10, 0, 75)
+textBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+textBox.BorderSizePixel = 1
+textBox.BorderColor3 = Color3.fromRGB(100, 100, 100)
+textBox.Text = tostring(player.UserId)
+textBox.PlaceholderText = "Ingresa User ID..."
+textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+textBox.TextSize = 14
+textBox.Font = Enum.Font.Gotham
+textBox.ClearTextOnFocus = false
+textBox.Parent = mainFrame
+
+local textBoxCorner = Instance.new("UICorner")
+textBoxCorner.CornerRadius = UDim.new(0, 4)
+textBoxCorner.Parent = textBox
+
+local createButton = Instance.new("TextButton")
+createButton.Name = "CreateButton"
+createButton.Size = UDim2.new(0, 280, 0, 35)
+createButton.Position = UDim2.new(0, 10, 0, 115)
+createButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+createButton.BorderSizePixel = 0
+createButton.Text = "CREAR CLON"
+createButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+createButton.TextSize = 14
+createButton.Font = Enum.Font.GothamBold
+createButton.Parent = mainFrame
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 4)
+buttonCorner.Parent = createButton
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Name = "StatusLabel"
+statusLabel.Size = UDim2.new(0, 280, 0, 20)
+statusLabel.Position = UDim2.new(0, 10, 1, 5)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "Presiona X para abrir/cerrar"
+statusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+statusLabel.TextSize = 12
+statusLabel.Font = Enum.Font.GothamItalic
+statusLabel.Parent = mainFrame
+
+-- ===== FUNCIÓN PARA CREAR CLON =====
+local function createClone(userId)
+	-- Eliminar clon anterior si existe
+	if clone then
+		clone:Destroy()
+		clone = nil
+		cloneHumanoid = nil
+		cloneHRP = nil
 	end
-end
-
--- Crear AttachmentAlign para controlar posición sin anclar
-local attachment0 = Instance.new("Attachment")
-attachment0.Parent = cloneHRP
-
-local attachment1 = Instance.new("Attachment")
-attachment1.Parent = workspace.Terrain
-
-local alignPosition = Instance.new("AlignPosition")
-alignPosition.Attachment0 = attachment0
-alignPosition.Attachment1 = attachment1
-alignPosition.MaxForce = math.huge
-alignPosition.MaxVelocity = math.huge
-alignPosition.Responsiveness = 200
-alignPosition.ApplyAtCenterOfMass = true
-alignPosition.Parent = cloneHRP
-
-local alignOrientation = Instance.new("AlignOrientation")
-alignOrientation.Attachment0 = attachment0
-alignOrientation.Attachment1 = attachment1
-alignOrientation.MaxTorque = math.huge
-alignOrientation.MaxAngularVelocity = math.huge
-alignOrientation.Responsiveness = 200
-alignOrientation.Parent = cloneHRP
-
--- Copiar accesorios del jugador
-for _, obj in ipairs(character:GetChildren()) do
-	if obj:IsA("Accessory") then
-		local cloneAccessory = obj:Clone()
-		cloneAccessory.Parent = clone
-		
-		-- Sin colisiones para accesorios
-		for _, part in ipairs(cloneAccessory:GetDescendants()) do
-			if part:IsA("BasePart") then
-				part.CanCollide = false
-				part.Massless = true
-				pcall(function()
-					PhysicsService:SetPartCollisionGroup(part, "CloneGroup")
-				end)
+	
+	-- Crear nuevo clon
+	local success, errorMsg = pcall(function()
+		clone = Players:CreateHumanoidModelFromUserId(userId)
+	end)
+	
+	if not success then
+		statusLabel.Text = "❌ Error: ID inválido"
+		statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+		wait(2)
+		statusLabel.Text = "Presiona X para abrir/cerrar"
+		statusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+		return false
+	end
+	
+	clone.Name = "VisualClone"
+	clone.Parent = workspace
+	
+	cloneHumanoid = clone:WaitForChild("Humanoid")
+	cloneHRP = clone:WaitForChild("HumanoidRootPart")
+	clone.PrimaryPart = cloneHRP
+	cloneHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	
+	-- Visual - SOLO anclar HumanoidRootPart
+	for _, v in ipairs(clone:GetDescendants()) do
+		if v:IsA("BasePart") then
+			v.CanCollide = false
+			v.Transparency = 0.2
+			if v == cloneHRP then
+				v.Anchored = true
+			else
+				v.Anchored = false
 			end
 		end
 	end
+	
+	-- Copiar accesorios del jugador clonado
+	task.spawn(function()
+		local targetPlayer = Players:GetPlayerByUserId(userId)
+		if targetPlayer and targetPlayer.Character then
+			for _, obj in ipairs(targetPlayer.Character:GetChildren()) do
+				if obj:IsA("Accessory") then
+					local cloneAccessory = obj:Clone()
+					cloneAccessory.Parent = clone
+				end
+			end
+		end
+	end)
+	
+	-- Posicionar clon
+	cloneHRP.CFrame = hrp.CFrame * OFFSET
+	
+	-- Sincronizar animaciones
+	task.wait(0.1)
+	syncAnimator()
+	
+	statusLabel.Text = "✓ Clon creado exitosamente"
+	statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+	
+	return true
 end
 
 -- ===== SINCRONIZAR ANIMACIONES =====
-local function syncAnimator()
+function syncAnimator()
 	local srcAnimator = humanoid:FindFirstChildOfClass("Animator")
-	local dstAnimator = cloneHumanoid:FindFirstChildOfClass("Animator")
 	
-	if not srcAnimator or not dstAnimator then
+	if not srcAnimator then
 		return
 	end
 	
 	RunService.RenderStepped:Connect(function()
+		if not clone or not cloneHumanoid then return end
+		
+		local dstAnimator = cloneHumanoid:FindFirstChildOfClass("Animator")
+		if not dstAnimator then return end
+		
 		local srcTracks = srcAnimator:GetPlayingAnimationTracks()
 		local dstTracks = dstAnimator:GetPlayingAnimationTracks()
 		
@@ -146,71 +241,67 @@ local function syncAnimator()
 		end
 	end)
 end
-task.wait(0.1)
-syncAnimator()
 
--- ===== FUNCIÓN DE TELETRANSPORTE =====
-local function teleportToClone()
-	if not following and cloneHRP then
-		-- Teletransportar el jugador a la posición del clon
-		hrp.CFrame = cloneHRP.CFrame
-		
-		-- Opcional: Efecto visual de teletransporte
-		local teleportEffect = Instance.new("Part")
-		teleportEffect.Size = Vector3.new(5, 5, 5)
-		teleportEffect.Transparency = 0.5
-		teleportEffect.Color = Color3.fromRGB(0, 170, 255)
-		teleportEffect.Material = Enum.Material.Neon
-		teleportEffect.Anchored = true
-		teleportEffect.CanCollide = false
-		teleportEffect.CFrame = hrp.CFrame
-		teleportEffect.Parent = workspace
-		
-		-- Animar el efecto
-		task.spawn(function()
-			for i = 1, 10 do
-				teleportEffect.Transparency = teleportEffect.Transparency + 0.05
-				teleportEffect.Size = teleportEffect.Size + Vector3.new(0.5, 0.5, 0.5)
-				task.wait(0.03)
-			end
-			teleportEffect:Destroy()
-		end)
+-- ===== EVENTO DEL BOTÓN =====
+createButton.MouseButton1Click:Connect(function()
+	local userId = tonumber(textBox.Text)
+	
+	if not userId then
+		statusLabel.Text = "❌ Por favor ingresa un ID válido"
+		statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+		wait(2)
+		statusLabel.Text = "Presiona X para abrir/cerrar"
+		statusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+		return
 	end
-end
+	
+	createButton.Text = "CREANDO..."
+	createButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+	
+	local success = createClone(userId)
+	
+	wait(0.5)
+	createButton.Text = "CREAR CLON"
+	createButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+	
+	if success then
+		wait(1.5)
+		mainFrame.Visible = false
+		statusLabel.Text = "Presiona X para abrir/cerrar"
+		statusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+	end
+end)
 
--- ===== CONTROLES DE TECLADO =====
+-- ===== TOGGLE GUI CON X =====
 UserInputService.InputBegan:Connect(function(input, gp)
 	if gp then return end
 	
-	-- Toggle congelar/seguir con Z
+	if input.KeyCode == Enum.KeyCode.X then
+		mainFrame.Visible = not mainFrame.Visible
+	end
+	
+	-- ===== TOGGLE SEGUIMIENTO CON Z =====
 	if input.KeyCode == Enum.KeyCode.Z then
+		if not clone then return end
+		
 		following = not following
 		if not following then
 			frozenPosition = cloneHRP.Position
 			lastPlayerCFrame = hrp.CFrame
-			print("Clon CONGELADO - Presiona X para teletransportarte")
 		else
 			frozenPosition = nil
 			lastPlayerCFrame = nil
-			print("Clon SIGUIENDO")
-		end
-	end
-	
-	-- Teletransporte con X (solo cuando está congelado)
-	if input.KeyCode == Enum.KeyCode.X then
-		if not following then
-			teleportToClone()
-			print("¡Teletransportado al clon!")
-		else
-			print("El clon debe estar CONGELADO (presiona Z primero)")
 		end
 	end
 end)
 
+-- ===== CREAR CLON INICIAL =====
+createClone(player.UserId)
+
 -- ===== MOVIMIENTO =====
 local currentCFrame = nil
 RunService.RenderStepped:Connect(function()
-	if not clone.PrimaryPart or not attachment1 then return end
+	if not clone or not clone.PrimaryPart then return end
 	
 	local targetCFrame
 	
@@ -228,14 +319,10 @@ RunService.RenderStepped:Connect(function()
 	end
 	
 	currentCFrame = currentCFrame and currentCFrame:Lerp(targetCFrame, SMOOTHNESS) or targetCFrame
-	
-	-- Actualizar los attachments para controlar posición
-	attachment1.WorldCFrame = currentCFrame
+	cloneHRP.CFrame = currentCFrame
 end)
 
--- Mensaje inicial
-print("=================================")
-print("CONTROLES:")
-print("Z - Congelar/Descongelar clon")
-print("X - Teletransportarse al clon (cuando está congelado)")
-print("=================================")
+print("✓ Visual Clone Script cargado correctamente")
+print("Controles:")
+print("  X = Abrir/Cerrar GUI")
+print("  Z = Congelar/Seguir clon")
