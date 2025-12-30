@@ -1,6 +1,6 @@
 -- VISUAL CLONE CON ANIMACIONES + TOGGLE Z + GUI TOGGLE X
 -- Creator = Nobodxy85-bit
--- FINAL FIX
+-- FINAL FIX :D
 
 -- ===== SERVICIOS =====
 local Players = game:GetService("Players")
