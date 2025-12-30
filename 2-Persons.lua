@@ -1,4 +1,4 @@
--- VISUAL CLONE + ANIMACIONES + SELECTOR R6/R15 + GUI X
+-- VISUAL CLONE + ANIMACIONES + SELECTOR R6/R15 + GUI X D:
 -- Creator: Nobodxy85-bit
 
 -- ===== SERVICIOS =====
@@ -154,13 +154,20 @@ local function createClone(userId)
 	if clone then clone:Destroy() end
 
 	local rigToUse = selectedRig
+
 	if rigToUse == "AUTO" then
 		rigToUse = isR6(character) and "R6" or "R15"
 	end
 
 	if rigToUse == "R6" then
+		-- R6 SOLO puede ser tu character
+		if not isR6(character) then
+			warn("No puedes forzar R6 si tu personaje es R15")
+			return
+		end
 		clone = character:Clone()
-	else
+
+	else -- R15
 		local ok, model = pcall(function()
 			return Players:CreateHumanoidModelFromUserId(userId)
 		end)
@@ -181,7 +188,7 @@ local function createClone(userId)
 	for _,v in ipairs(clone:GetDescendants()) do
 		if v:IsA("BasePart") then
 			v.CanCollide = false
-			v.Transparency = 0.2
+			v.Transparency = 0
 			v.Anchored = false
 		end
 	end
