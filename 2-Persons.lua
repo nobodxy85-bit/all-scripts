@@ -1,4 +1,4 @@
--- VISUAL CLONE CON ANIMACIONES + TOGGLE Z (SE QUEDA EN LUGAR PERO TE COPIA)
+-- VISUAL CLONE CON ANIMACIONES + TOGGLE Z (SE QUEDA EN LUGAR PERO TE COPIA :D)
 -- + TELETRANSPORTE CON X (cuando está congelado)
 -- Creator = Nobodxy85-bit
 -- Modified: Added teleport feature
