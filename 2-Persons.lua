@@ -1,6 +1,6 @@
 -- VISUAL CLONE CON ANIMACIONES + TOGGLE Z + GUI TOGGLE X
 -- Creator = Nobodxy85-bit
--- FIXED & CLEAN
+-- FINAL FIX
 
 -- ===== SERVICIOS =====
 local Players = game:GetService("Players")
@@ -41,25 +41,53 @@ screenGui.IgnoreGuiInset = true
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 300, 0, 150)
-mainFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
-mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+mainFrame.Size = UDim2.new(0, 300, 0, 180)
+mainFrame.Position = UDim2.new(0.5, -150, 0.5, -90)
+mainFrame.BackgroundColor3 = Color3.fromRGB(35,35,35)
 mainFrame.Parent = screenGui
-Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0,8)
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,35)
+title.BackgroundTransparency = 1
+title.Text = "VISUAL CLONE"
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.Parent = mainFrame
+
+local textBox = Instance.new("TextBox")
+textBox.Size = UDim2.new(0,280,0,30)
+textBox.Position = UDim2.new(0,10,0,45)
+textBox.Text = tostring(player.UserId)
+textBox.PlaceholderText = "UserId del jugador"
+textBox.TextColor3 = Color3.new(1,1,1)
+textBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+textBox.ClearTextOnFocus = false
+textBox.Parent = mainFrame
+Instance.new("UICorner", textBox).CornerRadius = UDim.new(0,6)
 
 local createButton = Instance.new("TextButton")
-createButton.Size = UDim2.new(0, 280, 0, 35)
-createButton.Position = UDim2.new(0, 10, 0, 100)
+createButton.Size = UDim2.new(0,280,0,35)
+createButton.Position = UDim2.new(0,10,0,85)
 createButton.Text = "CREAR CLON"
 createButton.BackgroundColor3 = Color3.fromRGB(0,170,255)
 createButton.TextColor3 = Color3.new(1,1,1)
 createButton.Parent = mainFrame
+Instance.new("UICorner", createButton).CornerRadius = UDim.new(0,6)
 
--- ===== DRAG GUI (FUNCIONA CON ESC) =====
+local info = Instance.new("TextLabel")
+info.Size = UDim2.new(1,0,0,30)
+info.Position = UDim2.new(0,0,0,130)
+info.BackgroundTransparency = 1
+info.Text = "X = GUI | Z = Freeze"
+info.TextColor3 = Color3.fromRGB(180,180,180)
+info.TextSize = 12
+info.Parent = mainFrame
+
+-- ===== DRAG GUI =====
 do
-	local dragging = false
-	local dragStart
-	local startPos
+	local dragging, dragStart, startPos
 
 	mainFrame.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -103,8 +131,8 @@ local function syncAnimator()
 			local found = false
 			for _,t in ipairs(dstAnimator:GetPlayingAnimationTracks()) do
 				if t.Animation.AnimationId == track.Animation.AnimationId then
-					t.TimePosition = track.TimePosition
 					found = true
+					t.TimePosition = track.TimePosition
 				end
 			end
 			if not found then
@@ -153,7 +181,11 @@ end
 
 -- ===== BOTÓN =====
 createButton.MouseButton1Click:Connect(function()
-	createClone(player.UserId)
+	local id = tonumber(textBox.Text)
+	if not id then
+		id = player.UserId
+	end
+	createClone(id)
 end)
 
 -- ===== TOGGLES =====
@@ -162,7 +194,6 @@ UserInputService.InputBegan:Connect(function(input, gp)
 
 	if input.KeyCode == Enum.KeyCode.X then
 		mainFrame.Visible = not mainFrame.Visible
-
 	elseif input.KeyCode == Enum.KeyCode.Z and cloneRoot then
 		following = not following
 		if not following then
