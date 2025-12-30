@@ -1,6 +1,5 @@
--- VISUAL CLONE CON ANIMACIONES + TOGGLE Z + GUI X
+-- VISUAL CLONE + ANIMACIONES + SELECTOR R6/R15 + GUI X
 -- Creator: Nobodxy85-bit
--- Fixed & unified
 
 -- ===== SERVICIOS =====
 local Players = game:GetService("Players")
@@ -24,6 +23,8 @@ local cloneHumanoid
 local cloneRoot
 local animConnection
 
+local selectedRig = "AUTO" -- AUTO / R6 / R15
+
 -- ===== CHARACTER =====
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
@@ -41,8 +42,8 @@ gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0,260,0,150)
-frame.Position = UDim2.new(0.5,-130,0.5,-75)
+frame.Size = UDim2.new(0,260,0,200)
+frame.Position = UDim2.new(0.5,-130,0.5,-100)
 frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
 frame.BorderSizePixel = 0
 frame.Active = false
@@ -58,9 +59,10 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 16
 title.Parent = frame
 
+-- ===== USER ID =====
 local idBox = Instance.new("TextBox")
 idBox.Size = UDim2.new(1,-20,0,32)
-idBox.Position = UDim2.new(0,10,0,45)
+idBox.Position = UDim2.new(0,10,0,40)
 idBox.PlaceholderText = "UserId (vacío = tú)"
 idBox.Text = ""
 idBox.ClearTextOnFocus = false
@@ -71,9 +73,44 @@ idBox.TextSize = 14
 idBox.Parent = frame
 Instance.new("UICorner", idBox).CornerRadius = UDim.new(0,6)
 
+-- ===== SELECTOR RIG =====
+local rigLabel = Instance.new("TextLabel")
+rigLabel.Size = UDim2.new(1,-20,0,20)
+rigLabel.Position = UDim2.new(0,10,0,80)
+rigLabel.BackgroundTransparency = 1
+rigLabel.Text = "Tipo de cuerpo:"
+rigLabel.TextColor3 = Color3.fromRGB(200,200,200)
+rigLabel.Font = Enum.Font.Gotham
+rigLabel.TextSize = 13
+rigLabel.TextXAlignment = Enum.TextXAlignment.Left
+rigLabel.Parent = frame
+
+local rigButton = Instance.new("TextButton")
+rigButton.Size = UDim2.new(1,-20,0,28)
+rigButton.Position = UDim2.new(0,10,0,100)
+rigButton.Text = "AUTO"
+rigButton.BackgroundColor3 = Color3.fromRGB(60,60,60)
+rigButton.TextColor3 = Color3.new(1,1,1)
+rigButton.Font = Enum.Font.GothamBold
+rigButton.TextSize = 14
+rigButton.Parent = frame
+Instance.new("UICorner", rigButton).CornerRadius = UDim.new(0,6)
+
+rigButton.MouseButton1Click:Connect(function()
+	if selectedRig == "AUTO" then
+		selectedRig = "R6"
+	elseif selectedRig == "R6" then
+		selectedRig = "R15"
+	else
+		selectedRig = "AUTO"
+	end
+	rigButton.Text = selectedRig
+end)
+
+-- ===== BOTÓN =====
 local createBtn = Instance.new("TextButton")
-createBtn.Size = UDim2.new(1,-20,0,35)
-createBtn.Position = UDim2.new(0,10,0,95)
+createBtn.Size = UDim2.new(1,-20,0,32)
+createBtn.Position = UDim2.new(0,10,0,140)
 createBtn.Text = "CREAR CLON"
 createBtn.BackgroundColor3 = Color3.fromRGB(0,170,255)
 createBtn.TextColor3 = Color3.new(1,1,1)
@@ -88,7 +125,6 @@ local function syncAnimator()
 
 	local srcAnimator = humanoid:FindFirstChildOfClass("Animator")
 	if not srcAnimator or not cloneHumanoid then return end
-
 	local dstAnimator = cloneHumanoid:FindFirstChildOfClass("Animator")
 	if not dstAnimator then return end
 
@@ -117,7 +153,12 @@ end
 local function createClone(userId)
 	if clone then clone:Destroy() end
 
-	if isR6(character) then
+	local rigToUse = selectedRig
+	if rigToUse == "AUTO" then
+		rigToUse = isR6(character) and "R6" or "R15"
+	end
+
+	if rigToUse == "R6" then
 		clone = character:Clone()
 	else
 		local ok, model = pcall(function()
@@ -140,7 +181,7 @@ local function createClone(userId)
 	for _,v in ipairs(clone:GetDescendants()) do
 		if v:IsA("BasePart") then
 			v.CanCollide = false
-			v.Transparency = 0
+			v.Transparency = 0.2
 			v.Anchored = false
 		end
 	end
@@ -154,15 +195,13 @@ end
 
 -- ===== BOTÓN =====
 createBtn.MouseButton1Click:Connect(function()
-	local id = tonumber(idBox.Text)
-	if not id then id = player.UserId end
+	local id = tonumber(idBox.Text) or player.UserId
 	createClone(id)
 end)
 
 -- ===== TOGGLES =====
 UserInputService.InputBegan:Connect(function(input,gp)
 	if gp then return end
-
 	if input.KeyCode == Enum.KeyCode.X then
 		frame.Visible = not frame.Visible
 	elseif input.KeyCode == Enum.KeyCode.Z and cloneRoot then
