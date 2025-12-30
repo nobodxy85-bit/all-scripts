@@ -1,4 +1,4 @@
--- VISUAL CLONE CON ANIMACIONES + TOGGLE Z + GUI TOGGLE X
+-- VISUAL CLONE CON ANIMACIONES + TOGGLE Z + GUI TOGGLE X :D
 -- Creator = Nobodxy85-bit
 -- Enhanced by Claude
 
@@ -113,7 +113,7 @@ statusLabel.BackgroundTransparency = 1
 statusLabel.Text = "Presiona X para abrir/cerrar"
 statusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
 statusLabel.TextSize = 12
-statusLabel.Font = Enum.Font.GothamItalic
+statusLabel.Font = Enum.Font.Gotham
 statusLabel.Parent = mainFrame
 
 -- ===== FUNCIÓN PARA CREAR CLON =====
