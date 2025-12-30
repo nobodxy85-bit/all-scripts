@@ -1,6 +1,6 @@
 -- VISUAL CLONE CON ANIMACIONES + TOGGLE Z + GUI TOGGLE X
 -- Creator = Nobodxy85-bit
--- FIXED by ChatGPT
+-- FIXED & CLEAN
 
 -- ===== SERVICIOS =====
 local Players = game:GetService("Players")
@@ -41,35 +41,39 @@ screenGui.IgnoreGuiInset = true
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0,300,0,150)
-mainFrame.Position = UDim2.new(0.5,-150,0.5,-75)
-mainFrame.BackgroundColor3 = Color3.fromRGB(35,35,35)
+mainFrame.Size = UDim2.new(0, 300, 0, 150)
+mainFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
+mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 mainFrame.Parent = screenGui
-
-Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0,8)
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
 
 local createButton = Instance.new("TextButton")
-createButton.Size = UDim2.new(0,280,0,35)
-createButton.Position = UDim2.new(0,10,0,100)
+createButton.Size = UDim2.new(0, 280, 0, 35)
+createButton.Position = UDim2.new(0, 10, 0, 100)
 createButton.Text = "CREAR CLON"
+createButton.BackgroundColor3 = Color3.fromRGB(0,170,255)
+createButton.TextColor3 = Color3.new(1,1,1)
 createButton.Parent = mainFrame
 
 -- ===== DRAG GUI (FUNCIONA CON ESC) =====
 do
-	local dragging, dragStart, startPos
+	local dragging = false
+	local dragStart
+	local startPos
 
 	mainFrame.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			dragging = true
 			dragStart = input.Position
 			startPos = mainFrame.Position
+
 			input.Changed:Connect(function()
 				if input.UserInputState == Enum.UserInputState.End then
 					dragging = false
 				end
-			end
+			end)
 		end
-	end
+	end)
 
 	UserInputService.InputChanged:Connect(function(input)
 		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
@@ -80,8 +84,9 @@ do
 			)
 		end
 	end)
+end
 
--- ===== SINCRONIZAR ANIMACIONES =====
+-- ===== ANIMACIONES =====
 local animConnection
 local function syncAnimator()
 	if animConnection then animConnection:Disconnect() end
@@ -95,15 +100,21 @@ local function syncAnimator()
 		if not dstAnimator then return end
 
 		for _,track in ipairs(srcAnimator:GetPlayingAnimationTracks()) do
-			if not dstAnimator:FindFirstChild(track.Animation.AnimationId) then
+			local found = false
+			for _,t in ipairs(dstAnimator:GetPlayingAnimationTracks()) do
+				if t.Animation.AnimationId == track.Animation.AnimationId then
+					t.TimePosition = track.TimePosition
+					found = true
+				end
+			end
+			if not found then
 				local anim = Instance.new("Animation")
 				anim.AnimationId = track.Animation.AnimationId
-				local t = dstAnimator:LoadAnimation(anim)
-				t:Play()
+				dstAnimator:LoadAnimation(anim):Play()
 			end
 		end
-	end
-end)
+	end)
+end
 
 -- ===== CREAR CLON =====
 local function createClone(userId)
@@ -151,6 +162,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
 
 	if input.KeyCode == Enum.KeyCode.X then
 		mainFrame.Visible = not mainFrame.Visible
+
 	elseif input.KeyCode == Enum.KeyCode.Z and cloneRoot then
 		following = not following
 		if not following then
@@ -177,5 +189,5 @@ RunService.RenderStepped:Connect(function()
 	cloneRoot.CFrame = currentCFrame
 end)
 
--- ===== INICIAL =====
+-- ===== INICIO =====
 createClone(player.UserId)
