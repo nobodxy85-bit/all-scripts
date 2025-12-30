@@ -1,5 +1,8 @@
 -- VISUAL CLONE CON ANIMACIONES + TOGGLE Z (SE QUEDA EN LUGAR PERO TE COPIA)
+-- + TELETRANSPORTE CON X (cuando está congelado)
 -- Creator = Nobodxy85-bit
+-- Modified: Added teleport feature
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -146,17 +149,60 @@ end
 task.wait(0.1)
 syncAnimator()
 
--- ===== TOGGLE CON Z =====
+-- ===== FUNCIÓN DE TELETRANSPORTE =====
+local function teleportToClone()
+	if not following and cloneHRP then
+		-- Teletransportar el jugador a la posición del clon
+		hrp.CFrame = cloneHRP.CFrame
+		
+		-- Opcional: Efecto visual de teletransporte
+		local teleportEffect = Instance.new("Part")
+		teleportEffect.Size = Vector3.new(5, 5, 5)
+		teleportEffect.Transparency = 0.5
+		teleportEffect.Color = Color3.fromRGB(0, 170, 255)
+		teleportEffect.Material = Enum.Material.Neon
+		teleportEffect.Anchored = true
+		teleportEffect.CanCollide = false
+		teleportEffect.CFrame = hrp.CFrame
+		teleportEffect.Parent = workspace
+		
+		-- Animar el efecto
+		task.spawn(function()
+			for i = 1, 10 do
+				teleportEffect.Transparency = teleportEffect.Transparency + 0.05
+				teleportEffect.Size = teleportEffect.Size + Vector3.new(0.5, 0.5, 0.5)
+				task.wait(0.03)
+			end
+			teleportEffect:Destroy()
+		end)
+	end
+end
+
+-- ===== CONTROLES DE TECLADO =====
 UserInputService.InputBegan:Connect(function(input, gp)
 	if gp then return end
+	
+	-- Toggle congelar/seguir con Z
 	if input.KeyCode == Enum.KeyCode.Z then
 		following = not following
 		if not following then
 			frozenPosition = cloneHRP.Position
 			lastPlayerCFrame = hrp.CFrame
+			print("Clon CONGELADO - Presiona X para teletransportarte")
 		else
 			frozenPosition = nil
 			lastPlayerCFrame = nil
+			print("Clon SIGUIENDO")
+		end
+	end
+	
+	-- Teletransporte con X (solo cuando está congelado)
+	if input.KeyCode == Enum.KeyCode.X then
+		if not following then
+			teleportToClone()
+			print("¡Teletransportado al clon!")
+		else
+			print("El clon debe estar CONGELADO (presiona Z primero)")
 		end
 	end
 end)
@@ -186,3 +232,10 @@ RunService.RenderStepped:Connect(function()
 	-- Actualizar los attachments para controlar posición
 	attachment1.WorldCFrame = currentCFrame
 end)
+
+-- Mensaje inicial
+print("=================================")
+print("CONTROLES:")
+print("Z - Congelar/Descongelar clon")
+print("X - Teletransportarse al clon (cuando está congelado)")
+print("=================================")
