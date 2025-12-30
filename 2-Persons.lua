@@ -1,18 +1,19 @@
--- VISUAL CLONE CON ANIMACIONES + TOGGLE Z + GUI
--- Creator = Nobodxy85-bit
--- Fixed by Chatgpt
+-- VISUAL CLONE CON ANIMACIONES + TOGGLE Z + GUI X
+-- Creator: Nobodxy85-bit
+-- Fixed & unified
 
+-- ===== SERVICIOS =====
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 
--- CONFIG
-local OFFSET = CFrame.new(-5, 0, 0)
+-- ===== CONFIG =====
+local OFFSET = CFrame.new(-5,0,0)
 local SMOOTHNESS = 0.15
 
--- ESTADO
+-- ===== ESTADO =====
 local following = true
 local frozenPosition
 local lastPlayerCFrame
@@ -20,122 +21,78 @@ local currentCFrame
 
 local clone
 local cloneHumanoid
-local cloneHRP
+local cloneRoot
+local animConnection
 
--- CHARACTER
+-- ===== CHARACTER =====
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local hrp = character:WaitForChild("HumanoidRootPart")
 
+-- ===== UTIL =====
+local function isR6(char)
+	return char:FindFirstChild("Torso") ~= nil
+end
+
 -- ===== GUI =====
-local gui = Instance.new("ScreenGui", player.PlayerGui)
+local gui = Instance.new("ScreenGui")
+gui.Name = "VisualCloneGUI"
 gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
 
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0,300,0,200)
-frame.Position = UDim2.new(0.5,-150,0.5,-100)
-frame.BackgroundColor3 = Color3.fromRGB(35,35,35)
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0,260,0,150)
+frame.Position = UDim2.new(0.5,-130,0.5,-75)
+frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+frame.BorderSizePixel = 0
+frame.Active = false
+frame.Parent = gui
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0,8)
 
-local title = Instance.new("TextLabel", frame)
+local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1,0,0,30)
+title.BackgroundTransparency = 1
 title.Text = "VISUAL CLONE"
 title.TextColor3 = Color3.new(1,1,1)
-title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.Parent = frame
 
-local idBox = Instance.new("TextBox", frame)
-idBox.Size = UDim2.new(0,280,0,30)
-idBox.Position = UDim2.new(0,10,0,40)
-idBox.Text = tostring(player.UserId)
-idBox.PlaceholderText = "UserId del jugador"
-idBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+local idBox = Instance.new("TextBox")
+idBox.Size = UDim2.new(1,-20,0,32)
+idBox.Position = UDim2.new(0,10,0,45)
+idBox.PlaceholderText = "UserId (vacío = tú)"
+idBox.Text = ""
+idBox.ClearTextOnFocus = false
+idBox.BackgroundColor3 = Color3.fromRGB(45,45,45)
 idBox.TextColor3 = Color3.new(1,1,1)
+idBox.Font = Enum.Font.Gotham
+idBox.TextSize = 14
+idBox.Parent = frame
+Instance.new("UICorner", idBox).CornerRadius = UDim.new(0,6)
 
-local createBtn = Instance.new("TextButton", frame)
-createBtn.Size = UDim2.new(0,280,0,30)
-createBtn.Position = UDim2.new(0,10,0,80)
+local createBtn = Instance.new("TextButton")
+createBtn.Size = UDim2.new(1,-20,0,35)
+createBtn.Position = UDim2.new(0,10,0,95)
 createBtn.Text = "CREAR CLON"
 createBtn.BackgroundColor3 = Color3.fromRGB(0,170,255)
+createBtn.TextColor3 = Color3.new(1,1,1)
+createBtn.Font = Enum.Font.GothamBold
+createBtn.TextSize = 14
+createBtn.Parent = frame
+Instance.new("UICorner", createBtn).CornerRadius = UDim.new(0,6)
 
-local bodyLabel = Instance.new("TextLabel", frame)
-bodyLabel.Size = UDim2.new(0,280,0,20)
-bodyLabel.Position = UDim2.new(0,10,0,115)
-bodyLabel.Text = "Tipo de cuerpo:"
-bodyLabel.TextColor3 = Color3.new(1,1,1)
-bodyLabel.BackgroundTransparency = 1
-bodyLabel.TextXAlignment = Enum.TextXAlignment.Left
+-- ===== ANIMACIONES =====
+local function syncAnimator()
+	if animConnection then animConnection:Disconnect() end
 
-local bodyType = "R15"
-
-local r15Btn = Instance.new("TextButton", frame)
-r15Btn.Size = UDim2.new(0,135,0,25)
-r15Btn.Position = UDim2.new(0,10,0,140)
-r15Btn.Text = "R15"
-r15Btn.BackgroundColor3 = Color3.fromRGB(0,170,255)
-
-local r6Btn = Instance.new("TextButton", frame)
-r6Btn.Size = UDim2.new(0,135,0,25)
-r6Btn.Position = UDim2.new(0,155,0,140)
-r6Btn.Text = "R6"
-r6Btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-
-r15Btn.MouseButton1Click:Connect(function()
-	bodyType = "R15"
-	r15Btn.BackgroundColor3 = Color3.fromRGB(0,170,255)
-	r6Btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-end)
-
-r6Btn.MouseButton1Click:Connect(function()
-	bodyType = "R6"
-	r6Btn.BackgroundColor3 = Color3.fromRGB(0,170,255)
-	r15Btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-end)
-
--- ===== CREAR CLON =====
-local function createClone(userId)
-	if clone then clone:Destroy() end
-
-	local model
-	if bodyType == "R6" then
-		local desc = Players:GetHumanoidDescriptionFromUserId(userId)
-		desc.RigType = Enum.HumanoidRigType.R6
-		model = Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R6)
-	else
-		model = Players:CreateHumanoidModelFromUserId(userId)
-	end
-
-	if not model then return end
-
-	clone = model
-	clone.Name = "VisualClone"
-	clone.Parent = workspace
-
-	cloneHumanoid = clone:WaitForChild("Humanoid")
-	cloneHRP = clone:WaitForChild("HumanoidRootPart")
-	clone.PrimaryPart = cloneHRP
-
-	cloneHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-
-	for _,v in ipairs(clone:GetDescendants()) do
-		if v:IsA("BasePart") then
-			v.CanCollide = false
-			v.Transparency = 0.2
-			v.Anchored = (v == cloneHRP)
-		end
-	end
-
-	-- Accesorios
-	for _,obj in ipairs(character:GetChildren()) do
-		if obj:IsA("Accessory") then
-			obj:Clone().Parent = clone
-		end
-	end
-
-	-- Animaciones
 	local srcAnimator = humanoid:FindFirstChildOfClass("Animator")
-	local dstAnimator = cloneHumanoid:FindFirstChildOfClass("Animator")
+	if not srcAnimator or not cloneHumanoid then return end
 
-	RunService.RenderStepped:Connect(function()
-		if not srcAnimator or not dstAnimator then return end
+	local dstAnimator = cloneHumanoid:FindFirstChildOfClass("Animator")
+	if not dstAnimator then return end
+
+	animConnection = RunService.RenderStepped:Connect(function()
 		for _,src in ipairs(srcAnimator:GetPlayingAnimationTracks()) do
 			local found = false
 			for _,dst in ipairs(dstAnimator:GetPlayingAnimationTracks()) do
@@ -143,29 +100,75 @@ local function createClone(userId)
 					dst.TimePosition = src.TimePosition
 					dst:AdjustSpeed(src.Speed)
 					found = true
+					break
 				end
 			end
 			if not found then
 				local anim = Instance.new("Animation")
 				anim.AnimationId = src.Animation.AnimationId
-				dstAnimator:LoadAnimation(anim):Play()
+				local t = dstAnimator:LoadAnimation(anim)
+				t:Play(0,1,src.Speed)
 			end
 		end
 	end)
 end
 
+-- ===== CREAR CLON =====
+local function createClone(userId)
+	if clone then clone:Destroy() end
+
+	if isR6(character) then
+		clone = character:Clone()
+	else
+		local ok, model = pcall(function()
+			return Players:CreateHumanoidModelFromUserId(userId)
+		end)
+		if not ok or not model then return end
+		clone = model
+	end
+
+	clone.Name = "VisualClone"
+	clone.Parent = workspace
+
+	cloneHumanoid = clone:FindFirstChildOfClass("Humanoid")
+	cloneRoot = clone:FindFirstChild("HumanoidRootPart") or clone:FindFirstChild("Torso")
+	if not cloneHumanoid or not cloneRoot then return end
+
+	clone.PrimaryPart = cloneRoot
+	cloneHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+
+	for _,v in ipairs(clone:GetDescendants()) do
+		if v:IsA("BasePart") then
+			v.CanCollide = false
+			v.Transparency = 0
+			v.Anchored = false
+		end
+	end
+
+	cloneRoot.Anchored = true
+	cloneRoot.CFrame = hrp.CFrame * OFFSET
+
+	task.wait()
+	syncAnimator()
+end
+
+-- ===== BOTÓN =====
 createBtn.MouseButton1Click:Connect(function()
-	local id = tonumber(idBox.Text) or player.UserId
+	local id = tonumber(idBox.Text)
+	if not id then id = player.UserId end
 	createClone(id)
 end)
 
--- ===== TOGGLE Z =====
-UserInputService.InputBegan:Connect(function(input, gp)
+-- ===== TOGGLES =====
+UserInputService.InputBegan:Connect(function(input,gp)
 	if gp then return end
-	if input.KeyCode == Enum.KeyCode.Z and cloneHRP then
+
+	if input.KeyCode == Enum.KeyCode.X then
+		frame.Visible = not frame.Visible
+	elseif input.KeyCode == Enum.KeyCode.Z and cloneRoot then
 		following = not following
 		if not following then
-			frozenPosition = cloneHRP.Position
+			frozenPosition = cloneRoot.Position
 			lastPlayerCFrame = hrp.CFrame
 		end
 	end
@@ -173,7 +176,7 @@ end)
 
 -- ===== MOVIMIENTO =====
 RunService.RenderStepped:Connect(function()
-	if not cloneHRP then return end
+	if not cloneRoot then return end
 
 	local target
 	if following then
@@ -185,5 +188,8 @@ RunService.RenderStepped:Connect(function()
 	end
 
 	currentCFrame = currentCFrame and currentCFrame:Lerp(target, SMOOTHNESS) or target
-	cloneHRP.CFrame = currentCFrame
+	cloneRoot.CFrame = currentCFrame
 end)
+
+-- ===== AUTO =====
+createClone(player.UserId)
