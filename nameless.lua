@@ -1,5 +1,5 @@
 -- ===== ESP ZOMBIES + AIMBOT + PERSISTENCIA COMPLETA =====
--- Creator = Nobodxy85-bit
+-- Creator = Nobodxy85-bit D:
 -- Version: 2.2 Full Working
 
 print("🔄 Iniciando ESP Script...")
@@ -695,3 +695,4 @@ print("="..string.rep("=", 60))
 print("✅ ESP CARGADO")
 print("📌 T=ESP | C=Aimbot | H=ServerHop | ⚙️=Menú")
 print("="..string.rep("=", 60))
+
