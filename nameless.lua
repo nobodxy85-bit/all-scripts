@@ -1,4 +1,4 @@
--- ===== ESP ZOMBIES + AIMBOT + PERSISTENCIA =====
+-- ===== ESP ZOMBIES + AIMBOT + PERSISTENCIA COMPLETA =====
 -- Creator = Nobodxy85-bit
 -- Version: 2.2 Full Working
 
@@ -6,7 +6,16 @@ print("🔄 Iniciando ESP Script...")
 
 -- ===== VERIFICAR SI YA ESTÁ CARGADO =====
 if _G.ESP_ZOMBIES_ACTIVE then
-    warn("⚠️ ESP Script ya está activo en este servidor")
+    warn("⚠️ ESP Script ya está activo")
+    local pg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+    if pg then
+        local gui = pg:FindFirstChild("ESP_GUI")
+        if gui then
+            local btn = gui:FindFirstChild("CircleButton")
+            if btn then btn.Visible = true end
+            print("✅ GUI restaurada")
+        end
+    end
     return
 end
 _G.ESP_ZOMBIES_ACTIVE = true
@@ -18,9 +27,9 @@ if not _G.ESP_CONFIG then
         aimbotEnabled = false,
         firstTimeKeyboard = true
     }
-    print("📝 Configuración inicial creada")
+    print("📝 Config inicial creada")
 else
-    print("📝 Configuración encontrada")
+    print("📝 Config encontrada - ESP:", _G.ESP_CONFIG.espEnabled, "Aimbot:", _G.ESP_CONFIG.aimbotEnabled)
 end
 
 -- ===== SERVICIOS =====
@@ -52,40 +61,80 @@ local connections = {}
 
 print("✅ Variables inicializadas")
 
--- ===== ESPERAR A QUE CARGUE EL PLAYER GUI =====
-local PlayerGui = player:WaitForChild("PlayerGui")
-print("✅ PlayerGui encontrado")
+-- ===== FUNCIÓN DE PERSISTENCIA =====
+local function setupPersistence()
+    print("🔧 Configurando persistencia...")
+    
+    local queueFunc = queue_on_teleport or 
+                     (syn and syn.queue_on_teleport) or 
+                     (fluxus and fluxus.queue_on_teleport)
+    
+    if not queueFunc then
+        warn("⚠️ queue_on_teleport no disponible en tu executor")
+        return false
+    end
+    
+    player.OnTeleport:Connect(function(state)
+        if state == Enum.TeleportState.Started then
+            print("🚀 Teleport detectado!")
+            
+            -- Guardar configuración actual
+            _G.ESP_CONFIG.espEnabled = enabled
+            _G.ESP_CONFIG.aimbotEnabled = aimbotEnabled
+            _G.ESP_CONFIG.firstTimeKeyboard = firstTimeKeyboard
+            
+            print("💾 Config guardada - ESP:", enabled, "Aimbot:", aimbotEnabled)
+            
+            -- Código para el nuevo servidor
+            local reloadCode = [[
+repeat task.wait() until game:IsLoaded()
+task.wait(1.5)
 
--- ===== LIMPIAR GUI ANTERIOR SI EXISTE =====
-local oldGui = PlayerGui:FindFirstChild("ESP_GUI")
-if oldGui then
-    print("🧹 Limpiando GUI anterior...")
-    oldGui:Destroy()
-    task.wait(0.1)
+print("🌟 [AUTO-RELOAD] Nuevo servidor detectado")
+print("📋 Config: ESP=" .. tostring(_G.ESP_CONFIG.espEnabled) .. " Aimbot=" .. tostring(_G.ESP_CONFIG.aimbotEnabled))
+
+_G.ESP_ZOMBIES_ACTIVE = nil
+
+-- PEGA TU SCRIPT COMPLETO AQUÍ O USA loadstring
+-- Ejemplo: loadstring(game:HttpGet("TU_URL"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/nobodxy85-bit/all-scripts/refs/heads/main/nameless.lua"))()
+]]
+            
+            local success, err = pcall(function()
+                queueFunc(reloadCode)
+            end)
+            
+            if success then
+                print("✅ Auto-recarga programada")
+            else
+                warn("❌ Error al programar recarga:", err)
+            end
+        end
+    end)
+    
+    return true
 end
 
 -- ===== CREAR GUI =====
-print("🎨 Creando GUI nueva...")
+print("🎨 Creando GUI...")
+
+local PlayerGui = player:WaitForChild("PlayerGui")
+
+local oldGui = PlayerGui:FindFirstChild("ESP_GUI")
+if oldGui then
+    print("🗑️ Eliminando GUI antigua")
+    oldGui:Destroy()
+    task.wait(0.1)
+end
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ESP_GUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.DisplayOrder = 100
 ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = PlayerGui
 
-print("📦 ScreenGui creado, añadiendo al PlayerGui...")
-
-local success, err = pcall(function()
-    ScreenGui.Parent = PlayerGui
-end)
-
-if not success then
-    warn("❌ Error al añadir GUI:", err)
-    return
-end
-
-print("✅ ScreenGui añadido correctamente")
+print("✅ ScreenGui creado")
 
 -- ===== ALERTA =====
 local AlertText = Instance.new("TextLabel")
@@ -98,12 +147,10 @@ AlertText.TextColor3 = Color3.fromRGB(255, 0, 0)
 AlertText.Font = Enum.Font.GothamBold
 AlertText.TextSize = 30
 AlertText.TextStrokeTransparency = 0.5
-AlertText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+AlertText.TextStrokeColor3 = Color3.new(0, 0, 0)
 AlertText.Visible = false
 AlertText.ZIndex = 10
 AlertText.Parent = ScreenGui
-
-print("✅ Alerta creada")
 
 -- ===== BOTÓN CIRCULAR =====
 local CircleButton = Instance.new("TextButton")
@@ -117,7 +164,6 @@ CircleButton.Text = "⚙️"
 CircleButton.TextSize = 35
 CircleButton.Font = Enum.Font.GothamBold
 CircleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-CircleButton.BorderSizePixel = 0
 CircleButton.ZIndex = 10
 CircleButton.AutoButtonColor = false
 CircleButton.Parent = ScreenGui
@@ -172,8 +218,6 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
-print("✅ Botón arrastrable configurado")
-
 -- ===== MENÚ =====
 local MobileMenu = Instance.new("Frame")
 MobileMenu.Name = "MobileMenu"
@@ -194,16 +238,12 @@ MenuCorner.Parent = MobileMenu
 local MenuStroke = Instance.new("UIStroke")
 MenuStroke.Color = Color3.fromRGB(255, 255, 255)
 MenuStroke.Thickness = 2
-MenuStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 MenuStroke.Parent = MobileMenu
-
-print("✅ Menú creado")
 
 -- ===== TÍTULO =====
 local MenuTitle = Instance.new("TextLabel")
 MenuTitle.Name = "MenuTitle"
 MenuTitle.Size = UDim2.new(1, 0, 0, 40)
-MenuTitle.Position = UDim2.new(0, 0, 0, 0)
 MenuTitle.BackgroundTransparency = 1
 MenuTitle.Text = "MENU DE CONTROL"
 MenuTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -217,13 +257,11 @@ local ESPButton = Instance.new("TextButton")
 ESPButton.Name = "ESPButton"
 ESPButton.Size = UDim2.new(0, 240, 0, 50)
 ESPButton.Position = UDim2.new(0.5, -120, 0, 55)
-ESPButton.AnchorPoint = Vector2.new(0.5, 0)
 ESPButton.BackgroundColor3 = enabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
 ESPButton.Text = enabled and "ESP: ON" or "ESP: OFF"
 ESPButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 ESPButton.Font = Enum.Font.GothamBold
 ESPButton.TextSize = 20
-ESPButton.BorderSizePixel = 0
 ESPButton.ZIndex = 12
 ESPButton.AutoButtonColor = false
 ESPButton.Parent = MobileMenu
@@ -237,13 +275,11 @@ local AimbotButton = Instance.new("TextButton")
 AimbotButton.Name = "AimbotButton"
 AimbotButton.Size = UDim2.new(0, 240, 0, 50)
 AimbotButton.Position = UDim2.new(0.5, -120, 0, 115)
-AimbotButton.AnchorPoint = Vector2.new(0.5, 0)
 AimbotButton.BackgroundColor3 = aimbotEnabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
 AimbotButton.Text = aimbotEnabled and "AIMBOT: ON" or "AIMBOT: OFF"
 AimbotButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 AimbotButton.Font = Enum.Font.GothamBold
 AimbotButton.TextSize = 20
-AimbotButton.BorderSizePixel = 0
 AimbotButton.ZIndex = 12
 AimbotButton.AutoButtonColor = false
 AimbotButton.Parent = MobileMenu
@@ -257,13 +293,11 @@ local ServerHopButton = Instance.new("TextButton")
 ServerHopButton.Name = "ServerHopButton"
 ServerHopButton.Size = UDim2.new(0, 240, 0, 50)
 ServerHopButton.Position = UDim2.new(0.5, -120, 0, 175)
-ServerHopButton.AnchorPoint = Vector2.new(0.5, 0)
 ServerHopButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
 ServerHopButton.Text = "🔄 CAMBIAR SERVER"
 ServerHopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 ServerHopButton.Font = Enum.Font.GothamBold
 ServerHopButton.TextSize = 18
-ServerHopButton.BorderSizePixel = 0
 ServerHopButton.ZIndex = 12
 ServerHopButton.AutoButtonColor = false
 ServerHopButton.Parent = MobileMenu
@@ -271,8 +305,6 @@ ServerHopButton.Parent = MobileMenu
 local ServerHopCorner = Instance.new("UICorner")
 ServerHopCorner.CornerRadius = UDim.new(0, 10)
 ServerHopCorner.Parent = ServerHopButton
-
-print("✅ Botones del menú creados")
 
 -- ===== TEXTO DE ESTADO =====
 local StatusText = Instance.new("TextLabel")
@@ -286,7 +318,6 @@ StatusText.TextColor3 = Color3.fromRGB(255, 255, 255)
 StatusText.Font = Enum.Font.GothamBold
 StatusText.TextSize = 18
 StatusText.Visible = false
-StatusText.BorderSizePixel = 0
 StatusText.ZIndex = 10
 StatusText.Parent = ScreenGui
 
@@ -302,7 +333,6 @@ WelcomeText.Text = "Creator = Nobodxy85-bit  :D"
 WelcomeText.TextColor3 = Color3.fromRGB(255, 255, 255)
 WelcomeText.Font = Enum.Font.GothamBold
 WelcomeText.TextSize = 18
-WelcomeText.BorderSizePixel = 0
 WelcomeText.ZIndex = 10
 WelcomeText.Parent = ScreenGui
 
@@ -324,37 +354,34 @@ task.spawn(function()
     end
 end)
 
-print("✅ GUI completo creado y visible")
+print("✅ GUI completa creada")
 
--- ===== FUNCIONES DE UTILIDAD =====
+-- ===== FUNCIONES =====
 local function showStatus(text, color)
     print("📢", text)
-    if StatusText then
-        StatusText.Text = text
-        StatusText.TextColor3 = color
-        StatusText.Visible = true
-        StatusText.TextTransparency = 0
-        StatusText.BackgroundTransparency = 0.5
-        
-        task.spawn(function()
-            task.wait(2)
-            for i = 0, 1, 0.05 do
-                if StatusText then
-                    StatusText.TextTransparency = i
-                    StatusText.BackgroundTransparency = 0.5 + (0.5 * i)
-                    task.wait(0.03)
-                end
-            end
+    StatusText.Text = text
+    StatusText.TextColor3 = color
+    StatusText.Visible = true
+    StatusText.TextTransparency = 0
+    StatusText.BackgroundTransparency = 0.5
+    
+    task.spawn(function()
+        task.wait(2)
+        for i = 0, 1, 0.05 do
             if StatusText then
-                StatusText.Visible = false
+                StatusText.TextTransparency = i
+                StatusText.BackgroundTransparency = 0.5 + (0.5 * i)
+                task.wait(0.03)
             end
-        end)
-    end
+        end
+        if StatusText then
+            StatusText.Visible = false
+        end
+    end)
 end
 
--- ===== SERVER HOP =====
 local function serverHop()
-    print("🔄 Iniciando Server Hop...")
+    print("🔄 Server Hop...")
     showStatus("🔄 Buscando servidor...", Color3.fromRGB(100, 150, 255))
     
     _G.ESP_CONFIG.espEnabled = enabled
@@ -368,12 +395,11 @@ local function serverHop()
                 game.PlaceId
             )
             
-            print("🌐 Consultando servidores...")
             local response = game:HttpGet(url)
             local data = HttpService:JSONDecode(response)
             
             if not data or not data.data then
-                showStatus("❌ No se encontraron servidores", Color3.fromRGB(255, 0, 0))
+                showStatus("❌ Error", Color3.fromRGB(255, 0, 0))
                 return
             end
             
@@ -384,128 +410,103 @@ local function serverHop()
                 end
             end
             
-            print("🎲 Servidores disponibles:", #servers)
-            
             if #servers == 0 then
-                showStatus("❌ No hay servidores disponibles", Color3.fromRGB(255, 0, 0))
+                showStatus("❌ No hay servidores", Color3.fromRGB(255, 0, 0))
                 return
             end
             
             local randomServer = servers[math.random(1, #servers)]
-            print("✈️ Teleportando...")
             TeleportService:TeleportToPlaceInstance(game.PlaceId, randomServer, player)
         end)
         
         if not success then
-            showStatus("❌ Error al cambiar servidor", Color3.fromRGB(255, 0, 0))
-            warn("❌ Server Hop Error:", err)
+            showStatus("❌ Error", Color3.fromRGB(255, 0, 0))
+            warn("❌ Error:", err)
         end
     end)
 end
 
--- ===== ESP FUNCTIONS =====
 local function addOutline(part, color)
-    pcall(function()
-        if not part:IsA("BasePart") or part:FindFirstChild("ESP_Highlight") then 
-            return 
-        end
+    if not part:IsA("BasePart") or part:FindFirstChild("ESP_Highlight") then 
+        return 
+    end
 
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "ESP_Highlight"
-        highlight.Adornee = part
-        highlight.FillTransparency = 1
-        highlight.OutlineTransparency = 0
-        highlight.OutlineColor = color
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Parent = part
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESP_Highlight"
+    highlight.Adornee = part
+    highlight.FillTransparency = 1
+    highlight.OutlineTransparency = 0
+    highlight.OutlineColor = color
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = part
 
-        table.insert(espObjects, highlight)
-    end)
+    table.insert(espObjects, highlight)
 end
 
 local function createZombieESP(zombie)
     if cachedZombies[zombie] then return end
     cachedZombies[zombie] = true
 
-    pcall(function()
-        for _, part in ipairs(zombie:GetChildren()) do
-            if part:IsA("BasePart") then
-                addOutline(part, Color3.fromRGB(255, 0, 0))
-            end
+    for _, part in ipairs(zombie:GetChildren()) do
+        if part:IsA("BasePart") then
+            addOutline(part, Color3.fromRGB(255, 0, 0))
         end
-    end)
+    end
 end
 
 local function createBoxESP(box)
     if cachedBoxes[box] then return end
     cachedBoxes[box] = true
 
-    pcall(function()
-        for _, part in ipairs(box:GetDescendants()) do
-            if part:IsA("BasePart") and part.Name ~= "Part" then
-                addOutline(part, Color3.fromRGB(0, 200, 255))
-            end
+    for _, part in ipairs(box:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name ~= "Part" then
+            addOutline(part, Color3.fromRGB(0, 200, 255))
         end
-    end)
+    end
 end
 
 local function clearESP()
-    print("🧹 Limpiando ESP...")
+    print("🧹 Limpiando ESP")
     for _, obj in ipairs(espObjects) do
-        pcall(function()
-            if obj then
-                obj:Destroy()
-            end
-        end)
+        pcall(function() obj:Destroy() end)
     end
     table.clear(espObjects)
     table.clear(cachedZombies)
     table.clear(cachedBoxes)
-    print("✅ ESP limpiado")
 end
 
 local function enableESP()
-    print("👁️ Activando ESP...")
-    
+    print("👁️ Activando ESP")
     local baddies = workspace:FindFirstChild("Baddies")
     if baddies then
-        local zombieCount = #baddies:GetChildren()
-        print("🧟 Creando ESP para", zombieCount, "zombies...")
-        
         for _, zombie in ipairs(baddies:GetChildren()) do
             createZombieESP(zombie)
         end
+        print("🧟 ESP aplicado a", #baddies:GetChildren(), "zombies")
         
-        local zombieConnection = baddies.ChildAdded:Connect(function(zombie)
+        local conn = baddies.ChildAdded:Connect(function(zombie)
             task.wait(0.1)
             if enabled then
                 createZombieESP(zombie)
             end
         end)
-        table.insert(connections, zombieConnection)
-        
-        print("✅ ESP de zombies activado")
+        table.insert(connections, conn)
     else
-        warn("⚠️ No se encontró la carpeta 'Baddies' en workspace")
+        warn("⚠️ No se encontró 'Baddies'")
     end
 
     local interact = workspace:FindFirstChild("Interact")
     if interact then
-        local boxCount = 0
         for _, obj in ipairs(interact:GetChildren()) do
             if obj.Name == "MysteryBox" then
                 createBoxESP(obj)
-                boxCount = boxCount + 1
             end
-        end
-        if boxCount > 0 then
-            print("📦", boxCount, "Mystery Boxes encontrados")
         end
     end
 end
 
 local function toggleESP(fromKeyboard)
-    print("🔄 Toggle ESP - Origen:", fromKeyboard and "Teclado" or "Botón")
+    print("🔄 Toggle ESP")
     enabled = not enabled
     _G.ESP_CONFIG.espEnabled = enabled
 
@@ -513,20 +514,17 @@ local function toggleESP(fromKeyboard)
         CircleButton.Visible = false
         firstTimeKeyboard = false
         _G.ESP_CONFIG.firstTimeKeyboard = false
-        print("👋 Botón circular ocultado (primera vez por teclado)")
     end
 
     if enabled then
         enableESP()
-        showStatus("ESP | ACTIVADO", Color3.fromRGB(0, 255, 0))
+        showStatus("ESP | ON", Color3.fromRGB(0, 255, 0))
         ESPButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
         ESPButton.Text = "ESP: ON"
     else
         clearESP()
-        if AlertText then
-            AlertText.Visible = false
-        end
-        showStatus("ESP | DESACTIVADO", Color3.fromRGB(255, 0, 0))
+        AlertText.Visible = false
+        showStatus("ESP | OFF", Color3.fromRGB(255, 0, 0))
         ESPButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
         ESPButton.Text = "ESP: OFF"
     end
@@ -538,17 +536,16 @@ local function toggleAimbot()
     _G.ESP_CONFIG.aimbotEnabled = aimbotEnabled
     
     if aimbotEnabled then
-        showStatus("AIMBOT | ACTIVADO", Color3.fromRGB(0, 255, 0))
+        showStatus("AIMBOT | ON", Color3.fromRGB(0, 255, 0))
         AimbotButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
         AimbotButton.Text = "AIMBOT: ON"
     else
-        showStatus("AIMBOT | DESACTIVADO", Color3.fromRGB(255, 0, 0))
+        showStatus("AIMBOT | OFF", Color3.fromRGB(255, 0, 0))
         AimbotButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
         AimbotButton.Text = "AIMBOT: OFF"
     end
 end
 
--- ===== AIMBOT =====
 local function getClosestZombieToCursor()
     local closest = nil
     local shortest = math.huge
@@ -578,65 +575,52 @@ end
 
 -- ===== EVENTOS =====
 CircleButton.MouseButton1Click:Connect(function()
-    print("🖱️ Botón circular clickeado")
     MobileMenu.Visible = not MobileMenu.Visible
     
     if MobileMenu.Visible then
-        print("📂 Menú abierto")
         CircleButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
         UIStroke.Color = Color3.fromRGB(0, 200, 255)
     else
-        print("📁 Menú cerrado")
         CircleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
         UIStroke.Color = Color3.fromRGB(255, 255, 255)
     end
 end)
 
 ESPButton.MouseButton1Click:Connect(function()
-    print("🖱️ Botón ESP clickeado")
     toggleESP(false)
 end)
 
 AimbotButton.MouseButton1Click:Connect(function()
-    print("🖱️ Botón Aimbot clickeado")
     toggleAimbot()
 end)
 
 ServerHopButton.MouseButton1Click:Connect(function()
-    print("🖱️ Botón Server Hop clickeado")
     serverHop()
 end)
 
-print("✅ Eventos de botones conectados")
-
--- ===== TECLADO =====
 local keyboardConnection = UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
 
     if input.KeyCode == Enum.KeyCode.T then
-        print("⌨️ Tecla T presionada")
         toggleESP(true)
     elseif input.KeyCode == Enum.KeyCode.C then
-        print("⌨️ Tecla C presionada")
         toggleAimbot()
     elseif input.KeyCode == Enum.KeyCode.H then
-        print("⌨️ Tecla H presionada")
         serverHop()
     end
 end)
 table.insert(connections, keyboardConnection)
 
-print("✅ Controles de teclado conectados")
+print("✅ Controles conectados")
 
--- ===== BUCLE PRINCIPAL =====
+-- ===== BUCLE =====
 local renderConnection = RunService.RenderStepped:Connect(function()
-    -- Alerta de zombies
     if enabled then
-        local character = player.Character
-        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        local char = player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
         local baddies = workspace:FindFirstChild("Baddies")
 
-        if hrp and baddies and AlertText then
+        if hrp and baddies then
             local count = 0
 
             for _, zombie in ipairs(baddies:GetChildren()) do
@@ -644,8 +628,7 @@ local renderConnection = RunService.RenderStepped:Connect(function()
                 local humanoid = zombie:FindFirstChildOfClass("Humanoid")
 
                 if root and humanoid and humanoid.Health > 0 then
-                    local distance = (hrp.Position - root.Position).Magnitude
-                    if distance <= ALERT_DISTANCE then
+                    if (hrp.Position - root.Position).Magnitude <= ALERT_DISTANCE then
                         count = count + 1
                     end
                 end
@@ -659,12 +642,9 @@ local renderConnection = RunService.RenderStepped:Connect(function()
             end
         end
     else
-        if AlertText then
-            AlertText.Visible = false
-        end
+        AlertText.Visible = false
     end
 
-    -- Aimbot
     if aimbotEnabled then
         local target = getClosestZombieToCursor()
         if target then
@@ -675,94 +655,43 @@ local renderConnection = RunService.RenderStepped:Connect(function()
 end)
 table.insert(connections, renderConnection)
 
-print("✅ Bucle principal iniciado")
-
--- ===== PERSISTENCIA =====
-local function setupPersistence()
-    local queueFunc = queue_on_teleport or 
-                     (syn and syn.queue_on_teleport) or 
-                     (fluxus and fluxus.queue_on_teleport)
-    
-    if not queueFunc then
-        print("⚠️ queue_on_teleport no disponible")
-        return false
-    end
-    
-    player.OnTeleport:Connect(function(state)
-        if state == Enum.TeleportState.Started then
-            print("🚀 Teleport detectado!")
-            
-            _G.ESP_CONFIG.espEnabled = enabled
-            _G.ESP_CONFIG.aimbotEnabled = aimbotEnabled
-            _G.ESP_CONFIG.firstTimeKeyboard = firstTimeKeyboard
-            
-            -- Aquí deberías poner la URL de tu script
-            local code = [[
-                repeat task.wait() until game:IsLoaded()
-                task.wait(1)
-                _G.ESP_ZOMBIES_ACTIVE = nil
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/nobodxy85-bit/all-scripts/refs/heads/main/nameless.lua"))()
-            ]]
-            
-            pcall(function()
-                queueFunc(code)
-                print("✅ Auto-recarga programada")
-            end)
-        end
-    end)
-    
-    return true
-end
-
-local persistenceOk = setupPersistence()
+print("✅ Bucle iniciado")
 
 -- ===== LIMPIEZA =====
 local function cleanup()
-    print("🧹 Limpiando todo...")
-    
-    for _, connection in ipairs(connections) do
+    for _, conn in ipairs(connections) do
         pcall(function()
-            connection:Disconnect()
+            if conn.Connected then
+                conn:Disconnect()
+            end
         end)
     end
-    
     clearESP()
-    table.clear(connections)
 end
 
 Players.PlayerRemoving:Connect(function(plr)
-    if plr == player then
-        cleanup()
-    end
+    if plr == player then cleanup() end
 end)
+
+-- ===== PERSISTENCIA =====
+setupPersistence()
 
 -- ===== AUTO-ACTIVAR =====
 task.spawn(function()
-    task.wait(1)
-    
-    print("🔍 Verificando auto-activación...")
+    task.wait(2)
     
     if _G.ESP_CONFIG.espEnabled and not enabled then
-        print("🔄 Reactivando ESP automáticamente...")
+        print("🔄 Auto-activando ESP")
         toggleESP(false)
     end
     
     if _G.ESP_CONFIG.aimbotEnabled and not aimbotEnabled then
-        print("🔄 Reactivando Aimbot automáticamente...")
+        print("🔄 Auto-activando Aimbot")
         toggleAimbot()
     end
 end)
 
 print("="..string.rep("=", 60))
-print("✅ ESP SCRIPT CARGADO COMPLETAMENTE")
+print("✅ ESP CARGADO")
+print("📌 T=ESP | C=Aimbot | H=ServerHop | ⚙️=Menú")
 print("="..string.rep("=", 60))
-print("📌 CONTROLES:")
-print("   T = Toggle ESP")
-print("   C = Toggle Aimbot")
-print("   H = Server Hop")
-print("   ⚙️ = Abrir/Cerrar Menú")
-print("="..string.rep("=", 60))
-print("🎮 GUI visible en pantalla")
-print("🔧 Presiona T para activar el ESP")
-print("="..string.rep("=", 60))
-
