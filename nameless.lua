@@ -701,7 +701,7 @@ local function setupPersistence()
                 repeat task.wait() until game:IsLoaded()
                 task.wait(1)
                 _G.ESP_ZOMBIES_ACTIVE = nil
-                loadstring(game:HttpGet("TU_URL_AQUI"))()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/nobodxy85-bit/all-scripts/refs/heads/main/nameless.lua"))()
             ]]
             
             pcall(function()
@@ -765,3 +765,4 @@ print("="..string.rep("=", 60))
 print("🎮 GUI visible en pantalla")
 print("🔧 Presiona T para activar el ESP")
 print("="..string.rep("=", 60))
+
