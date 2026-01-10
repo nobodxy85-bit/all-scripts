@@ -77,7 +77,7 @@ end
 -- Opcional: Activar/desactivar con tecla (por ejemplo, "F")
 local UserInputService = game:GetService("UserInputService")
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.F then
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.G then
         ToggleFog()
     end
 end)
